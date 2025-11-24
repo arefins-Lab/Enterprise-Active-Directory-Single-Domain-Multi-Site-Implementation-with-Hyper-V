@@ -1,76 +1,118 @@
 # Enterprise-Active-Directory-Single-Domain-Multi-Site-Implementation-with-Hyper-V
-Project Overview
-This project details the implementation of a robust, on-premise Active Directory infrastructure. The design focuses on providing a secure and reliable network with fast authentication services for a medium-sized enterprise with three regional offices: Dhaka, Chittagong, and Sylhet.
+Project Overview:
+This project simulates an enterprise-scale Active Directory deployment across multiple sites using Hyper-V virtualisation. The objectives were:
 
-The architecture uses a single-domain, multi-site structure to ensure high availability and efficient replication across geographically separated locations.
+Centralised identity management with a single domain
 
-Key Features
-Multi-Site Active Directory: A three-site topology was designed to represent the Dhaka, Chittagong, and Sylhet offices. The project includes the proper configuration of site links to control replication between the three offices, ensuring efficient use of network bandwidth.
+Multi‑site replication for redundancy and scalability
 
-Single-Domain Structure: A single domain, systest.lab, was established with all sites belonging to the same domain. This design streamlines administration and establishes a unified security boundary for the entire organisation.
+Integrated DNS and DHCP services for seamless client connectivity
 
-High Availability and Redundancy:
+Future‑ready design with options for RODCs, IPAM, and hybrid cloud integration
 
-The main Dhaka office hosts the primary Domain Controller (DC), SRV-DHK-DC01, and an Additional Domain Controller (ADC), SRV-DHK-ADC01, for redundancy.
+The lab was built entirely on Hyper‑V, enabling multiple servers and sites to be deployed virtually, without physical hardware.
 
-The Chittagong branch office features its own ADC, SRV-CTG-ADC02, to ensure high availability and efficient authentication within the regional site.
+⚙️ Project Constraints & Requirements:
+Virtualisation: Hyper‑V is used to simulate multiple sites and servers
 
-Secure Remote Access: The Sylhet office is configured with a Read-Only Domain Controller (RODC), SRV-SYL-RODC01, which provides secure local authentication while minimising the security risk associated with a full domain controller in a less secure location.
+Domain Design: Single forest, single domain, multiple sites
 
-DNS & Replication: The design includes a fully configured DNS infrastructure with a backup DNS server, SRV-DHK-DNS02, to support domain resolution and reliable AD replication across all sites.
+Replication: Configured for redundancy and site awareness
 
-Technologies Used
-Active Directory Domain Services (AD DS)
+Networking: DHCP and DNS integrated with AD DS
 
-Windows Server 2022
+Scalability: Architecture designed to expand with additional sites or cloud integration
 
-Hyper-V
+🖥️ Architecture:
+Site A: Primary Domain Controller (DC1), DHCP, DNS
 
-Virtual Router with Remote Access (LAN Routing)
+Site B: Secondary Domain Controller (DC2), replication partner
 
-Personal Reflections
-One of the main challenges I faced during this project was figuring out how to connect the three isolated network segments. Initially, I considered using pfSense as a virtual router. However, since my home lab has only a single ISP connection, I decided it was crucial to keep the lab environment completely isolated from my home network by using internal virtual switches. This led me to switch my plan and use a Windows Server 2019 VM with the Remote Access role to provide LAN routing, which proved to be a more straightforward solution for my specific lab setup.
+Hyper‑V Hosts: Virtualised servers simulating enterprise topology
 
-Another key difficulty I repeatedly faced was troubleshooting NTP synchronization and replication problems, which are critical for a functional multi-site Active Directory environment. The frustration from these issues was a key motivator in ensuring a robust and stable final configuration.
+Clients: Windows PCs joined to the domain for validation
 
-The most important lesson I learned is that when building a new lab for any design or project, it is essential to solve the NTP server synchronization problem immediately after the initial domain controller promotion, as this will prevent numerous frustrating replication issues later on.
+(Diagram recommended: Site A ↔ Site B with DCs and Hyper‑V hosts)
 
-Getting Started
-This guide will walk you through the process of setting up the virtual lab environment in Hyper-V, replicating the Active Directory site design from this project.
+🔧 Configuration Steps:
+Active Directory Installation
 
-Create the Virtual Machines
-Begin by creating five virtual machines (VMs) using Windows Server 2022 and give them the following names and roles:
+powershell:
+Install-ADDSForest -DomainName "corp.local" -InstallDns
+DNS Zone Creation
 
-SRV-DHK-DC01 (Dhaka Domain Controller)
+powershell:
+Add-DnsServerPrimaryZone -Name "corp.local" -ReplicationScope Forest
+DHCP Scope Setup
 
-SRV-DHK-ADC01 (Dhaka Additional Domain Controller)
+powershell:
+Add-DhcpServerv4Scope -Name "CorpScope" -StartRange 192.168.10.100 -EndRange 192.168.10.200 -SubnetMask 255.255.255.0
+Site/Subnet Definition
 
-SRV-CTG-ADC02 (Chittagong Additional Domain Controller)
+powershell:
+New-ADReplicationSite -Name "SiteA"
+New-ADReplicationSite -Name "SiteB"
+New-ADReplicationSubnet -Name "192.168.10.0/24" -Site "SiteA"
+Replication Validation
 
-SRV-SYL-RODC01 (Sylhet Read-Only Domain Controller)
+powershell:
+repadmin /showrepl
+Get-ADReplicationSite
 
-SRV-DHK-DNS02 (Dhaka DNS Backup Server)
+🔍 Validation:
+Domain Join: Clients successfully joined the corporate network. local
 
-Configure Virtual Networking
-Create three Internal Virtual Switches in Hyper-V to isolate the lab environment:
+Replication Check: Verified with repadmin /showrepl
 
-DHK-Network
+DNS Resolution: Tested with nslookup
 
-CTG-Network
+DHCP Leases: Confirmed with Get-DhcpServerv4Lease
 
-SYL-Network
+📜 PowerShell Command Library:
+powershell:
+# Install Active Directory Domain Services
+Install-WindowsFeature AD-Domain-Services
 
-Set IP Addressing
-Configure a static IP address on each VM, assigning them to the following subnets:
+# Create new forest and domain
+Install-ADDSForest -DomainName "corp.local" -InstallDns
 
-Dhaka: 192.168.10.0/24 (Connect this subnet to the DHK-Network switch)
+# Add additional domain controller
+Install-ADDSDomainController -DomainName "corp.local"
 
-Chittagong: 192.168.20.0/24 (Connect this subnet to the CTG-Network switch)
+# Configure DNS zone
+Add-DnsServerPrimaryZone -Name "corp.local" -ReplicationScope Forest
 
-Sylhet: 192.168.30.0/24 (Connect this subnet to the SYL-Network switch)
+# Add DHCP scope
+Add-DhcpServerv4Scope -Name "CorpScope" -StartRange 192.168.10.100 -EndRange 192.168.10.200 -SubnetMask 255.255.255.0
 
-Install a Virtual Router
-Use a separate VM running Windows Server 2019 and install the Remote Access role with LAN Routing enabled. This virtual router will provide connectivity between the three isolated subnets.
+# Define replication sites
+New-ADReplicationSite -Name "SiteA"
+New-ADReplicationSite -Name "SiteB"
 
-Deploy Active Directory
-Begin by promoting the SRV-DHK-DC01 VM to a forest root domain controller to create the parent domain, systest.lab. Continue deploying the other domain controllers in their respective sites.
+# Define subnets for sites
+New-ADReplicationSubnet -Name "192.168.10.0/24" -Site "SiteA"
+New-ADReplicationSubnet -Name "192.168.20.0/24" -Site "SiteB"
+
+# Validate replication
+repadmin /showrepl
+Get-ADReplicationSite
+
+🚀 Future Enhancements:
+Read‑Only Domain Controllers (RODCs) for branch offices
+
+IP Address Management (IPAM) integration
+
+Hybrid Cloud: Extend AD DS to Azure AD for cloud identity sync
+
+Advanced Monitoring: Implement AD replication health checks
+
+✅ Result
+A multi‑site Active Directory environment built on Hyper‑V, demonstrating:
+
+Centralised identity management
+
+Redundant replication across sites
+
+Integrated DNS/DHCP services
+
+Scalable enterprise‑style design
